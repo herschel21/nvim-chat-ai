@@ -14,15 +14,39 @@ M.state = {
 
 -- Get visual selection
 function M.get_visual_selection()
-  -- Save current register content
+  -- Try to get from visual marks first (for range commands like :'<,'>)
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
+  local start_col = vim.fn.col("'<")
+  local end_col = vim.fn.col("'>")
+  
+  -- Check if we have valid marks
+  if start_line > 0 and end_line > 0 then
+    local lines = vim.fn.getline(start_line, end_line)
+    
+    if #lines == 0 then
+      return ''
+    end
+    
+    -- Handle single line selection
+    if #lines == 1 then
+      lines[1] = string.sub(lines[1], start_col, end_col)
+    else
+      -- Handle multi-line selection
+      lines[1] = string.sub(lines[1], start_col)
+      lines[#lines] = string.sub(lines[#lines], 1, end_col)
+    end
+    
+    return table.concat(lines, '\n')
+  end
+  
+  -- Fallback: try yanking from visual mode (for keymap usage)
   local saved_reg = vim.fn.getreg('"')
   local saved_regtype = vim.fn.getregtype('"')
   
-  -- Yank visual selection to unnamed register
   vim.cmd('noau normal! "vy"')
   local selection = vim.fn.getreg('v')
   
-  -- Restore register
   vim.fn.setreg('"', saved_reg, saved_regtype)
   
   return selection

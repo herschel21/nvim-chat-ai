@@ -22,23 +22,23 @@ function M.setup(user_config)
   
   vim.api.nvim_create_user_command('LLMExplain', function()
     M.explain_code()
-  end, { desc = 'Explain selected code' })
+  end, { range = true, desc = 'Explain selected code' })
   
   vim.api.nvim_create_user_command('LLMQuery', function(opts)
     M.query_code(opts.args)
-  end, { nargs = '?', desc = 'Ask a question about selected code' })
+  end, { range = true, nargs = '?', desc = 'Ask a question about selected code' })
   
   vim.api.nvim_create_user_command('LLMRefactor', function()
     M.refactor_code()
-  end, { desc = 'Refactor selected code' })
+  end, { range = true, desc = 'Refactor selected code' })
   
   vim.api.nvim_create_user_command('LLMOptimize', function()
     M.optimize_code()
-  end, { desc = 'Optimize selected code' })
+  end, { range = true, desc = 'Optimize selected code' })
   
   vim.api.nvim_create_user_command('LLMComment', function()
     M.add_comments()
-  end, { desc = 'Add comments to selected code' })
+  end, { range = true, desc = 'Add comments to selected code' })
   
   vim.api.nvim_create_user_command('LLMChat', function()
     M.open_chat()
