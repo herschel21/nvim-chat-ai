@@ -8,7 +8,8 @@ M.state = {
   chat_buf = nil,
   chat_win = nil,
   loading_buf = nil,
-  loading_win = nil
+  loading_win = nil,
+  loading_timer = nil
 }
 
 -- Get visual selection
@@ -72,23 +73,35 @@ function M.show_response(response, model)
     vim.api.nvim_buf_set_option(M.state.response_buf, 'filetype', 'markdown')
   end
   
+  -- Make sure buffer is modifiable
+  vim.api.nvim_buf_set_option(M.state.response_buf, 'modifiable', true)
+  
   -- Parse response and extract code if present
   local lines = vim.split(response, '\n')
   
+  -- Add helpful message at the top
+  local all_lines = {
+    "<!-- Press 'y' to copy, 'q' or <Esc> to close -->",
+    ""
+  }
+  for _, line in ipairs(lines) do
+    table.insert(all_lines, line)
+  end
+  
   -- Set buffer content
-  vim.api.nvim_buf_set_lines(M.state.response_buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_lines(M.state.response_buf, 0, -1, false, all_lines)
+  
+  -- Now make buffer non-modifiable
+  vim.api.nvim_buf_set_option(M.state.response_buf, 'modifiable', false)
   
   -- Calculate appropriate height
-  local height = math.min(#lines + 2, 30)
+  local height = math.min(#all_lines + 2, 30)
   
   -- Create window
   M.state.response_win = M.create_float_win(M.state.response_buf, {
     title = " " .. model .. " ",
     height = height
   })
-  
-  -- Make buffer modifiable for better interaction
-  vim.api.nvim_buf_set_option(M.state.response_buf, 'modifiable', false)
   
   -- Set keymaps for closing
   local close_keys = { 'q', '<Esc>' }
@@ -102,16 +115,10 @@ function M.show_response(response, model)
     silent = true,
     noremap = true,
     callback = function()
-      local content = table.concat(vim.api.nvim_buf_get_lines(M.state.response_buf, 0, -1, false), "\n")
+      local content = table.concat(vim.api.nvim_buf_get_lines(M.state.response_buf, 2, -1, false), "\n")
       vim.fn.setreg("+", content)
       vim.notify("✓ Copied to clipboard", vim.log.levels.INFO)
     end
-  })
-  
-  -- Show helpful message
-  vim.api.nvim_buf_set_lines(M.state.response_buf, 0, 0, false, {
-    "<!-- Press 'y' to copy, 'q' or <Esc> to close -->",
-    ""
   })
 end
 
@@ -130,25 +137,29 @@ function M.show_code_replacement(response, original_code)
   vim.api.nvim_buf_set_option(buf, 'modifiable', true)
   
   local lines = vim.split(code, '\n')
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  
+  -- Add instructions at the top
+  local all_lines = {
+    "-- Press 'r' to replace original code, 'y' to copy, 'q' or <Esc> to close --",
+    ""
+  }
+  for _, line in ipairs(lines) do
+    table.insert(all_lines, line)
+  end
+  
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, all_lines)
+  
+  -- Make non-modifiable after adding content
+  vim.api.nvim_buf_set_option(buf, 'modifiable', false)
   
   -- Calculate height
-  local height = math.min(#lines + 4, 30)
+  local height = math.min(#all_lines + 2, 30)
   
   -- Create window
   local win = M.create_float_win(buf, {
     title = " Refactored Code ",
     height = height
   })
-  
-  -- Add instructions at the top
-  vim.api.nvim_buf_set_lines(buf, 0, 0, false, {
-    "-- Press 'r' to replace original code, 'y' to copy, 'q' or <Esc> to close --",
-    ""
-  })
-  
-  -- Make non-modifiable after adding instructions
-  vim.api.nvim_buf_set_option(buf, 'modifiable', false)
   
   -- Keymaps
   vim.api.nvim_buf_set_keymap(buf, 'n', 'q', ':close<CR>', { silent = true, noremap = true })
@@ -190,10 +201,19 @@ end
 
 -- Show loading indicator
 function M.show_loading(message)
+  -- Stop any existing timer
+  if M.state.loading_timer then
+    if not M.state.loading_timer:is_closing() then
+      M.state.loading_timer:stop()
+      M.state.loading_timer:close()
+    end
+    M.state.loading_timer = nil
+  end
+  
   -- Create buffer
   M.state.loading_buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_option(M.state.loading_buf, 'bufhidden', 'wipe')
-  vim.api.nvim_buf_set_option(M.state.loading_buf, 'modifiable', false)
+  vim.api.nvim_buf_set_option(M.state.loading_buf, 'modifiable', true)
   
   local spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
   local frame = 1
@@ -207,7 +227,6 @@ function M.show_loading(message)
     ""
   }
   
-  vim.api.nvim_buf_set_option(M.state.loading_buf, 'modifiable', true)
   vim.api.nvim_buf_set_lines(M.state.loading_buf, 0, -1, false, lines)
   vim.api.nvim_buf_set_option(M.state.loading_buf, 'modifiable', false)
   
@@ -223,11 +242,25 @@ function M.show_loading(message)
     ':LLMCancel<CR>', { silent = true, noremap = true })
   
   -- Animate spinner
-  local timer = vim.loop.new_timer()
-  timer:start(0, 100, vim.schedule_wrap(function()
+  M.state.loading_timer = vim.loop.new_timer()
+  M.state.loading_timer:start(0, 100, vim.schedule_wrap(function()
+    -- Check if window is still valid
     if not M.state.loading_win or not vim.api.nvim_win_is_valid(M.state.loading_win) then
-      timer:stop()
-      timer:close()
+      if M.state.loading_timer and not M.state.loading_timer:is_closing() then
+        M.state.loading_timer:stop()
+        M.state.loading_timer:close()
+      end
+      M.state.loading_timer = nil
+      return
+    end
+    
+    -- Check if buffer is still valid
+    if not M.state.loading_buf or not vim.api.nvim_buf_is_valid(M.state.loading_buf) then
+      if M.state.loading_timer and not M.state.loading_timer:is_closing() then
+        M.state.loading_timer:stop()
+        M.state.loading_timer:close()
+      end
+      M.state.loading_timer = nil
       return
     end
     
@@ -242,9 +275,20 @@ end
 
 -- Hide loading indicator
 function M.hide_loading()
+  -- Stop timer first
+  if M.state.loading_timer then
+    if not M.state.loading_timer:is_closing() then
+      M.state.loading_timer:stop()
+      M.state.loading_timer:close()
+    end
+    M.state.loading_timer = nil
+  end
+  
+  -- Close window
   if M.state.loading_win and vim.api.nvim_win_is_valid(M.state.loading_win) then
     vim.api.nvim_win_close(M.state.loading_win, true)
   end
+  
   M.state.loading_win = nil
   M.state.loading_buf = nil
 end
