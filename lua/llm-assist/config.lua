@@ -18,7 +18,7 @@ M.defaults = {
   },
   
   -- Default model
-  default_model = "gemma3:4b",
+  default_model = "deepseek-r1:latest",
   
   -- API Parameters
   temperature = 0.7,
