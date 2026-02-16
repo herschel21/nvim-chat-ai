@@ -45,6 +45,7 @@ M.defaults = {
   keymaps = {
     ask = "<leader>la",
     explain = "<leader>le",
+    query = "<leader>lq",
     refactor = "<leader>lr",
     optimize = "<leader>lo",
     comment = "<leader>lc",
@@ -113,6 +114,10 @@ function M.setup_keymaps()
   
   if keymaps.explain then
     vim.keymap.set('v', keymaps.explain, ':LLMExplain<CR>', { desc = 'LLM: Explain code' })
+  end
+  
+  if keymaps.query then
+    vim.keymap.set('v', keymaps.query, ':LLMQuery<CR>', { desc = 'LLM: Query code' })
   end
   
   if keymaps.refactor then

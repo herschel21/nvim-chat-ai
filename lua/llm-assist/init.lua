@@ -24,6 +24,10 @@ function M.setup(user_config)
     M.explain_code()
   end, { desc = 'Explain selected code' })
   
+  vim.api.nvim_create_user_command('LLMQuery', function(opts)
+    M.query_code(opts.args)
+  end, { nargs = '?', desc = 'Ask a question about selected code' })
+  
   vim.api.nvim_create_user_command('LLMRefactor', function()
     M.refactor_code()
   end, { desc = 'Refactor selected code' })
@@ -111,6 +115,43 @@ function M.explain_code()
       ui.show_response(response, M.state.current_model .. " - Code Explanation")
     end
   end, config.options.system_prompts.explain)
+end
+
+-- Query selected code with custom question
+function M.query_code(user_question)
+  local code = ui.get_visual_selection()
+  if not code or code == '' then
+    ui.show_error("No code selected. Please select code in visual mode first.")
+    return
+  end
+  
+  -- If no question provided, ask for one
+  if not user_question or user_question == '' then
+    user_question = vim.fn.input('Ask about the selected code: ')
+    if user_question == '' then return end
+  end
+  
+  local filetype = vim.bo.filetype
+  local question = string.format(
+    "%s\n\n```%s\n%s\n```",
+    user_question,
+    filetype, 
+    code
+  )
+  
+  M.state.is_loading = true
+  ui.show_loading("Querying " .. M.state.current_model .. "...")
+  
+  api.ask_model(M.state.current_model, question, function(response, error)
+    M.state.is_loading = false
+    ui.hide_loading()
+    
+    if error then
+      ui.show_error("Error: " .. error)
+    else
+      ui.show_response(response, M.state.current_model .. " - Code Query")
+    end
+  end)
 end
 
 -- Refactor selected code
