@@ -29,9 +29,7 @@ M.defaults = {
   -- System prompts
   system_prompts = {
     default = "You are an experienced programmer. Answer concisely, accurately, and seriously.",
-    explain = "You are an expert code reviewer. Explain code clearly and thoroughly.",
-    refactor = "You are a senior software engineer. Suggest clean, maintainable refactorings.",
-    optimize = "You are a performance optimization expert. Focus on efficiency and best practices."
+    explain = "You are an expert code reviewer. Explain code clearly and thoroughly."
   },
   
   -- UI Configuration
@@ -46,10 +44,6 @@ M.defaults = {
     ask = "<leader>la",
     explain = "<leader>le",
     query = "<leader>lq",
-    refactor = "<leader>lr",
-    optimize = "<leader>lo",
-    comment = "<leader>lc",
-    chat = "<leader>ll",
     model = "<leader>lm"
   }
 }
@@ -118,22 +112,6 @@ function M.setup_keymaps()
   
   if keymaps.query then
     vim.keymap.set('v', keymaps.query, ':LLMQuery<CR>', { desc = 'LLM: Query code' })
-  end
-  
-  if keymaps.refactor then
-    vim.keymap.set('v', keymaps.refactor, ':LLMRefactor<CR>', { desc = 'LLM: Refactor code' })
-  end
-  
-  if keymaps.optimize then
-    vim.keymap.set('v', keymaps.optimize, ':LLMOptimize<CR>', { desc = 'LLM: Optimize code' })
-  end
-  
-  if keymaps.comment then
-    vim.keymap.set('v', keymaps.comment, ':LLMComment<CR>', { desc = 'LLM: Add comments' })
-  end
-  
-  if keymaps.chat then
-    vim.keymap.set('n', keymaps.chat, ':LLMChat<CR>', { desc = 'LLM: Open chat' })
   end
   
   if keymaps.model then

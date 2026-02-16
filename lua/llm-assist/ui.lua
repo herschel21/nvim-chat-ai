@@ -5,8 +5,6 @@ local config = require('llm-assist.config')
 M.state = {
   response_buf = nil,
   response_win = nil,
-  chat_buf = nil,
-  chat_win = nil,
   loading_buf = nil,
   loading_win = nil,
   loading_timer = nil
@@ -146,83 +144,6 @@ function M.show_response(response, model)
   })
 end
 
--- Show code replacement window
-function M.show_code_replacement(response, original_code)
-  -- Extract code from markdown code blocks
-  local code = response:match("```[%w]*\n(.-)```") or response
-  
-  -- Remove leading/trailing whitespace
-  code = code:gsub("^%s+", ""):gsub("%s+$", "")
-  
-  -- Create buffer
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
-  vim.api.nvim_buf_set_option(buf, 'filetype', vim.bo.filetype)
-  vim.api.nvim_buf_set_option(buf, 'modifiable', true)
-  
-  local lines = vim.split(code, '\n')
-  
-  -- Add instructions at the top
-  local all_lines = {
-    "-- Press 'r' to replace original code, 'y' to copy, 'q' or <Esc> to close --",
-    ""
-  }
-  for _, line in ipairs(lines) do
-    table.insert(all_lines, line)
-  end
-  
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, all_lines)
-  
-  -- Make non-modifiable after adding content
-  vim.api.nvim_buf_set_option(buf, 'modifiable', false)
-  
-  -- Calculate height
-  local height = math.min(#all_lines + 2, 30)
-  
-  -- Create window
-  local win = M.create_float_win(buf, {
-    title = " Refactored Code ",
-    height = height
-  })
-  
-  -- Keymaps
-  vim.api.nvim_buf_set_keymap(buf, 'n', 'q', ':close<CR>', { silent = true, noremap = true })
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', ':close<CR>', { silent = true, noremap = true })
-  
-  -- Copy to clipboard
-  vim.api.nvim_buf_set_keymap(buf, 'n', 'y', '', {
-    silent = true,
-    noremap = true,
-    callback = function()
-      vim.fn.setreg("+", code)
-      vim.notify("✓ Copied to clipboard", vim.log.levels.INFO)
-    end
-  })
-  
-  -- Replace original selection
-  vim.api.nvim_buf_set_keymap(buf, 'n', 'r', '', {
-    silent = true,
-    noremap = true,
-    callback = function()
-      -- Close the float window
-      vim.api.nvim_win_close(win, true)
-      
-      -- Replace the visual selection with new code
-      vim.cmd('normal! gv')
-      vim.cmd('normal! "vd')
-      
-      -- Insert new code
-      local new_lines = vim.split(code, '\n')
-      local row = vim.fn.line('.')
-      local col = vim.fn.col('.')
-      
-      vim.api.nvim_buf_set_lines(0, row - 1, row - 1, false, new_lines)
-      
-      vim.notify("✓ Code replaced!", vim.log.levels.INFO)
-    end
-  })
-end
-
 -- Show loading indicator
 function M.show_loading(message)
   -- Stop any existing timer
@@ -315,70 +236,6 @@ function M.hide_loading()
   
   M.state.loading_win = nil
   M.state.loading_buf = nil
-end
-
--- Open chat window
-function M.open_chat_window(on_submit)
-  -- Create chat buffer
-  M.state.chat_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(M.state.chat_buf, 'bufhidden', 'wipe')
-  vim.api.nvim_buf_set_option(M.state.chat_buf, 'filetype', 'markdown')
-  vim.api.nvim_buf_set_option(M.state.chat_buf, 'buftype', 'nofile')
-  
-  -- Set initial content
-  local lines = {
-    "# LLM Chat",
-    "",
-    "Type your message below and press <CR> in normal mode to send.",
-    "Press 'q' or <Esc> to close.",
-    "",
-    "---",
-    "",
-  }
-  vim.api.nvim_buf_set_lines(M.state.chat_buf, 0, -1, false, lines)
-  
-  -- Create window
-  M.state.chat_win = M.create_float_win(M.state.chat_buf, {
-    title = " LLM Chat ",
-    height = 25
-  })
-  
-  -- Set keymaps
-  vim.api.nvim_buf_set_keymap(M.state.chat_buf, 'n', 'q', ':close<CR>', { silent = true, noremap = true })
-  vim.api.nvim_buf_set_keymap(M.state.chat_buf, 'n', '<Esc>', ':close<CR>', { silent = true, noremap = true })
-  
-  -- Submit on Enter
-  vim.api.nvim_buf_set_keymap(M.state.chat_buf, 'n', '<CR>', '', {
-    silent = true,
-    noremap = true,
-    callback = function()
-      local lines = vim.api.nvim_buf_get_lines(M.state.chat_buf, 0, -1, false)
-      local message_lines = {}
-      local in_message = false
-      
-      -- Extract message after the separator
-      for i, line in ipairs(lines) do
-        if line == "---" then
-          in_message = true
-        elseif in_message and line ~= "" then
-          table.insert(message_lines, line)
-        end
-      end
-      
-      local message = table.concat(message_lines, '\n'):gsub("^%s*(.-)%s*$", "%1")
-      
-      if message ~= "" then
-        vim.api.nvim_win_close(M.state.chat_win, true)
-        on_submit(message)
-      else
-        vim.notify("Please enter a message", vim.log.levels.WARN)
-      end
-    end
-  })
-  
-  -- Move cursor to input area
-  vim.api.nvim_win_set_cursor(M.state.chat_win, { 7, 0 })
-  vim.cmd('startinsert')
 end
 
 -- Show error message

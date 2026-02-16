@@ -28,22 +28,6 @@ function M.setup(user_config)
     M.query_code(opts.args)
   end, { range = true, nargs = '?', desc = 'Ask a question about selected code' })
   
-  vim.api.nvim_create_user_command('LLMRefactor', function()
-    M.refactor_code()
-  end, { range = true, desc = 'Refactor selected code' })
-  
-  vim.api.nvim_create_user_command('LLMOptimize', function()
-    M.optimize_code()
-  end, { range = true, desc = 'Optimize selected code' })
-  
-  vim.api.nvim_create_user_command('LLMComment', function()
-    M.add_comments()
-  end, { range = true, desc = 'Add comments to selected code' })
-  
-  vim.api.nvim_create_user_command('LLMChat', function()
-    M.open_chat()
-  end, { desc = 'Open LLM chat window' })
-  
   vim.api.nvim_create_user_command('LLMModel', function(opts)
     M.switch_model(opts.args)
   end, { nargs = 1, desc = 'Switch LLM model', complete = function()
@@ -151,106 +135,6 @@ function M.query_code(user_question)
     else
       ui.show_response(response, M.state.current_model .. " - Code Query")
     end
-  end)
-end
-
--- Refactor selected code
-function M.refactor_code()
-  local code = ui.get_visual_selection()
-  if not code or code == '' then
-    ui.show_error("No code selected. Please select code in visual mode first.")
-    return
-  end
-  
-  local filetype = vim.bo.filetype
-  local question = string.format(
-    "Refactor this %s code to make it cleaner and more maintainable. Only return the refactored code without explanations:\n\n```%s\n%s\n```",
-    filetype ~= '' and filetype or 'code',
-    filetype, 
-    code
-  )
-  
-  M.state.is_loading = true
-  ui.show_loading("Refactoring with " .. M.state.current_model .. "...")
-  
-  api.ask_model(M.state.current_model, question, function(response, error)
-    M.state.is_loading = false
-    ui.hide_loading()
-    
-    if error then
-      ui.show_error("Error: " .. error)
-    else
-      ui.show_code_replacement(response, code)
-    end
-  end, config.options.system_prompts.refactor)
-end
-
--- Optimize selected code
-function M.optimize_code()
-  local code = ui.get_visual_selection()
-  if not code or code == '' then
-    ui.show_error("No code selected. Please select code in visual mode first.")
-    return
-  end
-  
-  local filetype = vim.bo.filetype
-  local question = string.format(
-    "Optimize this %s code for better performance. Only return the optimized code without explanations:\n\n```%s\n%s\n```",
-    filetype ~= '' and filetype or 'code',
-    filetype, 
-    code
-  )
-  
-  M.state.is_loading = true
-  ui.show_loading("Optimizing with " .. M.state.current_model .. "...")
-  
-  api.ask_model(M.state.current_model, question, function(response, error)
-    M.state.is_loading = false
-    ui.hide_loading()
-    
-    if error then
-      ui.show_error("Error: " .. error)
-    else
-      ui.show_code_replacement(response, code)
-    end
-  end, config.options.system_prompts.optimize)
-end
-
--- Add comments to selected code
-function M.add_comments()
-  local code = ui.get_visual_selection()
-  if not code or code == '' then
-    ui.show_error("No code selected. Please select code in visual mode first.")
-    return
-  end
-  
-  local filetype = vim.bo.filetype
-  local question = string.format(
-    "Add helpful comments to this %s code. Return the code with comments, nothing else:\n\n```%s\n%s\n```",
-    filetype ~= '' and filetype or 'code',
-    filetype, 
-    code
-  )
-  
-  M.state.is_loading = true
-  ui.show_loading("Adding comments with " .. M.state.current_model .. "...")
-  
-  api.ask_model(M.state.current_model, question, function(response, error)
-    M.state.is_loading = false
-    ui.hide_loading()
-    
-    if error then
-      ui.show_error("Error: " .. error)
-    else
-      ui.show_code_replacement(response, code)
-    end
-  end)
-end
-
--- Open chat window
-function M.open_chat()
-  ui.open_chat_window(function(message)
-    M.ask(message)
   end)
 end
 
